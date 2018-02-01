@@ -1,0 +1,15 @@
+<launch>
+
+  <!-- start gps -->
+  <node pkg="nmea_navsat_driver" type="nmea_serial_driver" name="nmea_serial_driver">
+    <!-- set value to devnode of gps -->
+    <param name="port" value="/dev/ttyUSB0" />
+    <param name="baud" value="9600" />
+    <param name="frame_id" value="map" />
+  </node>
+
+  <node pkg="gps_localization" type="gps_localization_matcher.py" name="gps_localization" output="screen">
+    <remap from="/gps_localization/gps" to="/fix" />
+    <remap from="/gps_localization/odom" to="/odom/fused" />
+  </node>
+</launch>
