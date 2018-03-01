@@ -6,6 +6,7 @@ import numpy as np
 from nav_msgs.msg import Odometry, Path
 from sensor_msgs.msg import NavSatFix
 from geometry_msgs.msg import Point, Quaternion, PoseStamped, Pose2D
+import geodesy.utm
 import tf
 import math
 import collections
@@ -54,9 +55,6 @@ class GPSLocalization(object):
         self.observation_path_pub = rospy.Publisher("map_observation_path", Path, queue_size=1)
         self.map_pose_path_pub = rospy.Publisher("map_pose_path", Path, queue_size=1)
         self.robot_path_pub = rospy.Publisher("map_robot_path", Path, queue_size=1)
-
-        self.ref_lat = None
-        self.ref_lon = None
 
     def init_map(self, data):
         self.pose = np.array([data.x, data.y, data.theta])
@@ -233,9 +231,6 @@ class GPSLocalization(object):
             Capture the gps event and update the map transform.
             It's not magic just least squares.
         '''
-        if self.ref_lat is None:
-            self.ref_lat = data.latitude
-            self.ref_lon = data.longitude
 
         if self.last_odom is None:
             return
@@ -250,8 +245,10 @@ class GPSLocalization(object):
             return
 
         # Calculate the position of the measurement.
-        measured_x = (data.longitude - self.ref_lon) * (math.pi / 180.0) * RADIUS_EARTH * math.cos(self.ref_lat * math.pi / 180.0)
-        measured_y = (data.latitude - self.ref_lat) * (math.pi / 180.0) * RADIUS_EARTH
+        geo_point = geodesy.utm.fromLatLong(self.last_gps.latitude, self.last_gps.longitude).toPoint()
+        #TODO check valid
+        measured_x = geo_point.x
+        measured_y = geo_point.y
 
         self.measurement_queue.append(
             {
