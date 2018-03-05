@@ -245,7 +245,7 @@ class GPSLocalization(object):
             return
 
         # Calculate the position of the measurement.
-        geo_point = geodesy.utm.fromLatLong(self.last_gps.latitude, self.last_gps.longitude).toPoint()
+        geo_point = geodesy.utm.fromLatLong(data.latitude, data.longitude).toPoint()
         #TODO check valid
         measured_x = geo_point.x
         measured_y = geo_point.y
@@ -281,10 +281,13 @@ class GPSLocalization(object):
                 self.pose[i] = (1.0 - self.adoption_rate[i]) * self.pose[i] + self.adoption_rate[i] * tmp[i]
         self.publish(self.last_odom.header.stamp)
 
-    def pose_to_StampedPose(self, pose, time):
+    def pose_to_StampedPose(self, pose, time, frame=None):
         ps = PoseStamped()
         ps.header.stamp = time
-        ps.header.frame_id = self.child_frame_id
+        if frame is None:
+            ps.header.frame_id = self.child_frame_id
+        else:
+            ps.header.frame_id = frame
         ps.pose.position = Point(pose[0], pose[1], 0)
         quaternion = tf.transformations.quaternion_from_euler(0, 0, pose[2])
         ps.pose.orientation = Quaternion(*quaternion)
@@ -338,12 +341,12 @@ class GPSLocalization(object):
             measurement_path.header.stamp = time
             for x in self.measurement_queue:
                 map_pos = x["map"]
-                measurement_path.poses.append(self.pose_to_StampedPose([map_pos[0], map_pos[1], 0], x["stamp"]))
+                measurement_path.poses.append(self.pose_to_StampedPose([map_pos[0], map_pos[1], 0], x["stamp"], self.frame_id))
 
             self.observation_path_pub.publish(measurement_path)
 
             measurement_path = Path()
-            measurement_path.header.frame_id = self.frame_id
+            measurement_path.header.frame_id = self.child_frame_id
             measurement_path.header.stamp = time
             for x in self.measurement_queue:
                 p = self.add_relative_pose(self.delta, x["pose"])
