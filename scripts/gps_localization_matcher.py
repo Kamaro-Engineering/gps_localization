@@ -6,7 +6,10 @@ import numpy as np
 from nav_msgs.msg import Odometry, Path
 from sensor_msgs.msg import NavSatFix
 from geometry_msgs.msg import Point, Quaternion, PoseStamped, Pose2D
-import geodesy.utm
+try:
+    import geodesy.utm
+except:
+    print("Warning: Failed to find geodesy.utm, can not use UTM")
 import tf
 import math
 import collections
@@ -36,6 +39,7 @@ class GPSLocalization(object):
         '''
         self.sensor_offset = np.array([0.6, 0.0, 0.0])
 
+        self.use_utm = rospy.get_param('~use_utm', False)
         self.pose = self.sub_relative_pose(np.array([0, 0, 0]), self.sensor_offset)
         self.delta = self.sub_relative_pose(np.array([0, 0, 0]), self.sensor_offset)
         self.measurement_queue = collections.deque()
@@ -55,6 +59,9 @@ class GPSLocalization(object):
         self.observation_path_pub = rospy.Publisher("map_observation_path", Path, queue_size=1)
         self.map_pose_path_pub = rospy.Publisher("map_pose_path", Path, queue_size=1)
         self.robot_path_pub = rospy.Publisher("map_robot_path", Path, queue_size=1)
+
+        self.ref_lat = None
+        self.ref_lon = None
 
     def init_map(self, data):
         self.pose = np.array([data.x, data.y, data.theta])
@@ -231,6 +238,9 @@ class GPSLocalization(object):
             Capture the gps event and update the map transform.
             It's not magic just least squares.
         '''
+        if self.ref_lat is None:
+            self.ref_lat = data.latitude
+            self.ref_lon = data.longitude
 
         if self.last_odom is None:
             return
@@ -245,10 +255,13 @@ class GPSLocalization(object):
             return
 
         # Calculate the position of the measurement.
-        geo_point = geodesy.utm.fromLatLong(data.latitude, data.longitude).toPoint()
-        #TODO check valid
-        measured_x = geo_point.x
-        measured_y = geo_point.y
+        if self.use_utm:
+            geo_point = geodesy.utm.fromLatLong(data.latitude, data.longitude).toPoint()
+            measured_x = geo_point.x
+            measured_y = geo_point.y
+        else:
+            measured_x = (data.longitude - self.ref_lon) * (math.pi / 180.0) * RADIUS_EARTH * math.cos(self.ref_lat * math.pi / 180.0)
+            measured_y = (data.latitude - self.ref_lat) * (math.pi / 180.0) * RADIUS_EARTH
 
         self.measurement_queue.append(
             {
@@ -346,7 +359,7 @@ class GPSLocalization(object):
             self.observation_path_pub.publish(measurement_path)
 
             measurement_path = Path()
-            measurement_path.header.frame_id = self.child_frame_id
+            measurement_path.header.frame_id = self.frame_id
             measurement_path.header.stamp = time
             for x in self.measurement_queue:
                 p = self.add_relative_pose(self.delta, x["pose"])

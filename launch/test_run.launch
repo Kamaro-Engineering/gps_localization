@@ -9,6 +9,7 @@
   </node>
 
   <node pkg="gps_localization" type="gps_localization_matcher.py" name="gps_localization" output="screen">
+    <rosparam>use_utm: false</rosparam> <!-- defaults to false anyway -->
     <remap from="/gps_localization/gps" to="/fix" />
     <remap from="/gps_localization/odom" to="/odom/fused" />
   </node>
