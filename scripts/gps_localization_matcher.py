@@ -56,8 +56,11 @@ class GPSLocalization(object):
 
         self.odom_pub = rospy.Publisher("map_odometry", Odometry, queue_size=1)
 
+        # Publish unfiltered GPS path
         self.observation_path_pub = rospy.Publisher("map_observation_path", Path, queue_size=1)
+        # Publish fused path
         self.map_pose_path_pub = rospy.Publisher("map_pose_path", Path, queue_size=1)
+        # Publish unfiltered odom path
         self.robot_path_pub = rospy.Publisher("map_robot_path", Path, queue_size=1)
 
         self.ref_lat = None
